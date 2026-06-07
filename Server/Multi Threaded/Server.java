@@ -8,49 +8,47 @@ import java.util.concurrent.Executors;
 
 public class Server {
 
-    private static final int PORT = 8010;
-    private static final int THREAD_POOL_SIZE = 10;
-
-    public static void handleClient(Socket clientSocket) {
-        try (
-            Socket socket = clientSocket;
-            BufferedReader fromClient = new BufferedReader(
-                new InputStreamReader(socket.getInputStream())
-            );
-            PrintWriter toClient = new PrintWriter(socket.getOutputStream(), true)
-        ) {
-            String clientMessage = fromClient.readLine();
-
-            System.out.println(
-                "Client connected: " + socket.getRemoteSocketAddress()
-            );
-            System.out.println("Client says: " + clientMessage);
-
-            toClient.println("Hello from the server");
-
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-
     public static void main(String[] args) {
+        int port = 8010;
 
-        ExecutorService threadPool = Executors.newFixedThreadPool(THREAD_POOL_SIZE);
+        // Thread pool with 10 threads
+        ExecutorService pool = Executors.newFixedThreadPool(10);
 
-        try (ServerSocket serverSocket = new ServerSocket(PORT)) {
-
-            System.out.println("Server is listening on port: " + PORT);
+        try {
+            ServerSocket serverSocket = new ServerSocket(port);
+            System.out.println("Server is listening on port: " + port);
 
             while (true) {
                 Socket clientSocket = serverSocket.accept();
 
-                threadPool.submit(() -> handleClient(clientSocket));
+                // Give client work to thread pool
+                pool.execute(() -> {
+                    try {
+                        BufferedReader fromClient = new BufferedReader(
+                            new InputStreamReader(clientSocket.getInputStream())
+                        );
+
+                        PrintWriter toClient = new PrintWriter(
+                            clientSocket.getOutputStream(), true
+                        );
+
+                        String message = fromClient.readLine();
+                        System.out.println("Client says: " + message);
+
+                        toClient.println("Hello from the server");
+
+                        fromClient.close();
+                        toClient.close();
+                        clientSocket.close();
+
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                });
             }
 
         } catch (Exception e) {
             e.printStackTrace();
-        } finally {
-            threadPool.shutdown();
         }
     }
 }
